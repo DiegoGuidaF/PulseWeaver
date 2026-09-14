@@ -1,0 +1,172 @@
+name: Security Scan
+
+# Weekly answer to two questions Dependabot cannot: "is what users run
+# vulnerable?" and "is a release needed to fix it?"
+#
+# Dependabot keeps main patched, and :dev follows main on every push — but
+# :latest only moves when a v* tag is pushed by hand. So this scans both sides
+# (see security-scan-target.yml for what a scan is) and turns the comparison
+# into an assigned issue, which is what lands in the maintainer's inbox:
+#
+#   :latest vulnerable, main clean  → "Cut a release" issue: patch release
+#                                     (vX.Y.Z+1) with a ### Security changelog entry
+#   main vulnerable                 → "main is vulnerable" issue: Dependabot
+#                                     security updates should already have a PR;
+#                                     Go stdlib fixes are the golang base image
+#                                     bump in the Dockerfile
+#   a side comes back clean         → closes that side's issue if still open
+#
+# The run also fails whenever a scan does, so GitHub's own "failed workflow"
+# email goes out as well. Scheduled after Monday's Dependabot batch has
+# auto-merged, so it sees the patched main and not the one from a week ago.
+#
+# Routine dependency bumps that are not security fixes do not warrant a
+# release on their own; batch them into the next one.
+
+on:
+  schedule:
+    - cron: '0 6 * * 3' # Wednesday 06:00 UTC
+  workflow_dispatch:
+
+# Two overlapping runs would both miss the other's freshly created issue and
+# open a duplicate.
+concurrency:
+  group: security-scan
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  resolve-release:
+    name: Resolve latest release
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+
+    steps:
+      - name: Look up the tag :latest was built from
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq .tag_name)"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+  scan-main:
+    name: main (:dev)
+    permissions:
+      contents: read
+    uses: ./.github/workflows/security-scan-target.yml
+    with:
+      ref: main
+      image-tag: dev
+
+  scan-release:
+    name: release (:latest)
+    needs: resolve-release
+    permissions:
+      contents: read
+    uses: ./.github/workflows/security-scan-target.yml
+    with:
+      ref: ${{ needs.resolve-release.outputs.tag }}
+      image-tag: latest
+
+  report:
+    name: Report
+    runs-on: ubuntu-latest
+    needs: [resolve-release, scan-main, scan-release]
+    if: ${{ !cancelled() }}
+    permissions:
+      issues: write
+
+    steps:
+      - name: Open, bump or close the issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # No checkout here, so gh cannot infer the repo from a git remote.
+          GH_REPO: ${{ github.repository }}
+          MAIN_RESULT: ${{ needs.scan-main.result }}
+          RELEASE_RESULT: ${{ needs.scan-release.result }}
+          RELEASE_TAG: ${{ needs.resolve-release.outputs.tag }}
+          LABEL: security-scan
+        run: |
+          set -euo pipefail
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          release_title="Cut a release: :latest ships vulnerabilities already fixed on main"
+          main_title="main has a fixable vulnerability with no fix merged"
+
+          gh label create "$LABEL" --force \
+            --description "Opened by the weekly security scan" --color B60205
+
+          find_issue() { # title
+            gh issue list --state open --label "$LABEL" \
+              --json number,title --jq ".[] | select(.title == \"$1\") | .number" | head -n1
+          }
+
+          open_or_bump() { # title body-file bump-comment
+            local number
+            number="$(find_issue "$1")"
+            if [ -n "$number" ]; then
+              gh issue comment "$number" --body "$3"
+            else
+              gh issue create --title "$1" --body-file "$2" \
+                --label "$LABEL" --assignee "$GITHUB_REPOSITORY_OWNER"
+            fi
+          }
+
+          close_if_open() { # title
+            local number
+            number="$(find_issue "$1")"
+            if [ -n "$number" ]; then
+              gh issue close "$number" --comment "Resolved: $run_url"
+            fi
+          }
+
+          echo "main: $MAIN_RESULT, release ($RELEASE_TAG): $RELEASE_RESULT"
+
+          if [ "$RELEASE_RESULT" = failure ] && [ "$MAIN_RESULT" = success ]; then
+            cat > "$RUNNER_TEMP/body.md" <<EOF
+          The weekly security scan found HIGH/CRITICAL vulnerabilities with an available fix in what users run — \`:latest\`, built from \`${RELEASE_TAG}\` — that are no longer present on \`main\`.
+
+          Cut a patch release with \`make release-patch\`. Dependency bumps are skipped by git-cliff, so at the "Review and edit CHANGELOG.md" pause add a \`### Security\` section naming the advisories (IDs are in the run log). \`release.yml\` then builds, pushes \`:latest\` and publishes the GitHub release.
+
+          Scan run: $run_url
+
+          This issue closes itself once a scan of \`:latest\` comes back clean.
+          EOF
+            open_or_bump "$release_title" "$RUNNER_TEMP/body.md" \
+              "Still failing (:latest is ${RELEASE_TAG}): $run_url"
+          elif [ "$MAIN_RESULT" = failure ]; then
+            cat > "$RUNNER_TEMP/body.md" <<EOF
+          The weekly security scan found HIGH/CRITICAL vulnerabilities with an available fix on \`main\` (or the \`:dev\` image built from it).
+
+          - Module or npm dependency: Dependabot security updates should already have a PR open; merge it.
+          - Go standard library: the fix is the \`golang\` base image bump in the \`Dockerfile\` (Dependabot's \`docker-minor-patch\` group).
+          - Distroless base: the \`distroless/static-debian12\` digest bump.
+
+          Scan run: $run_url
+
+          This issue closes itself once a scan of \`main\` comes back clean.
+          EOF
+            open_or_bump "$main_title" "$RUNNER_TEMP/body.md" "Still failing: $run_url"
+            if [ "$RELEASE_RESULT" = failure ]; then
+              # A release now would not fix :latest; say so on the release issue if there is one.
+              number="$(find_issue "$release_title")"
+              if [ -n "$number" ]; then
+                gh issue comment "$number" --body "main is failing too — a release now would not fix this: $run_url"
+              fi
+            fi
+          fi
+
+          if [ "$RELEASE_RESULT" = success ]; then
+            close_if_open "$release_title"
+          fi
+          if [ "$MAIN_RESULT" = success ]; then
+            close_if_open "$main_title"
+          fi
+
+          if [ "$MAIN_RESULT" = failure ] || [ "$RELEASE_RESULT" = failure ]; then
+            echo "::error::security scan failed — see the issue for what to do"
+            exit 1
+          fi

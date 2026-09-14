@@ -1,0 +1,107 @@
+name: Security Scan Target
+
+# Reusable half of security-scan.yml: scans ONE (git ref, image tag) pair and
+# fails if anything HIGH/CRITICAL with an available fix is found. The caller
+# pairs main with :dev and the latest release tag with :latest, then compares.
+#
+# Three views of the same artifact, each catching what the others cannot:
+#   - govulncheck reports only vulnerabilities whose symbols the binary actually
+#     calls — including the Go standard library, which is where a forward-auth
+#     proxy gets hit (net/http, crypto/tls). Stdlib findings depend on the
+#     toolchain, so it runs with the Go version the Dockerfile builds the image
+#     with, not the go.mod minimum that setup-go would pick from go-version-file.
+#   - npm audit on the frontend's runtime dependencies only (--omit=dev): the
+#     bundle is what ships; ESLint/Vite/TypeScript advisories never reach users.
+#   - trivy on the published image reads the real binary's build info and the
+#     distroless base, so it catches an image built with a toolchain older than
+#     the sources currently say, and base-image CVEs neither scanner sees.
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref whose sources to scan
+        type: string
+        required: true
+      image-tag:
+        description: ghcr.io image tag built from that ref
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (govulncheck)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Read the Go version the image is built with
+        id: image-go
+        run: |
+          version="$(sed -nE 's/^FROM .*golang:([0-9]+\.[0-9]+\.[0-9]+)[-@].*/\1/p' Dockerfile)"
+          if [ -z "$version" ]; then
+            echo "::error::could not read the golang base image version from Dockerfile"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: ${{ steps.image-go.outputs.version }}
+          cache-dependency-path: go.sum
+          cache: true
+
+      - name: Install govulncheck
+        # golang.org/x/vuln is a Go-team module; go install verifies it against the
+        # checksum database (sum.golang.org), so no third-party action is trusted here.
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Scan reachable vulnerabilities
+        run: govulncheck ./...
+
+  frontend:
+    name: Frontend (npm audit)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: frontend/.nvmrc
+
+      - name: Audit runtime dependencies
+        # Works from the lockfile alone; no install needed.
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=high
+
+  image:
+    name: Image (trivy)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Scan published image
+        # Same scanner as testbench/security/scripts/trivy-scan.sh, narrowed to
+        # fixable HIGH/CRITICAL so the exit code alone is the verdict. The image
+        # is pulled anonymously, which works because the package is public.
+        env:
+          IMAGE_TAG: ${{ inputs.image-tag }}
+        run: |
+          docker run --rm ghcr.io/aquasecurity/trivy:latest image \
+            --scanners vuln \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 1 \
+            "ghcr.io/${GITHUB_REPOSITORY,,}:${IMAGE_TAG}"

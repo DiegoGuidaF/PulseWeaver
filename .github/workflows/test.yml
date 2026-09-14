@@ -54,6 +54,29 @@ jobs:
       - name: Run tests
         run: go test -tags=test ./cmd/... ./internal/...
 
+      - name: Read the Go version the image is built with
+        id: image-go
+        run: |
+          version="$(sed -nE 's/^FROM .*golang:([0-9]+\.[0-9]+\.[0-9]+)[-@].*/\1/p' Dockerfile)"
+          if [ -z "$version" ]; then
+            echo "::error::could not read the golang base image version from Dockerfile"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Scan reachable vulnerabilities
+        # Only vulnerabilities whose symbols the binary calls, stdlib included.
+        # Stdlib findings depend on the toolchain, so this runs under the one the
+        # Dockerfile builds the image with rather than the go.mod minimum above —
+        # GOTOOLCHAIN makes the go command fetch and use it for both steps.
+        # A red here on an unrelated PR means a fix landed upstream: merge the
+        # Dependabot bump (golang base image for stdlib) rather than working around it.
+        env:
+          GOTOOLCHAIN: go${{ steps.image-go.outputs.version }}
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
   test-frontend:
     name: Frontend (lint + test)
     runs-on: ubuntu-latest
