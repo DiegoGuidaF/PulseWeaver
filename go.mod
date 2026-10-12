@@ -7,18 +7,18 @@ require (
 	github.com/caarlos0/env/v11 v11.4.1
 	github.com/getkin/kin-openapi v0.149.0
 	github.com/go-chi/chi/v5 v5.3.2
-	github.com/go-chi/httprate v0.16.0
+	github.com/go-chi/httprate v0.16.1
 	github.com/golang-migrate/migrate/v4 v4.20.1
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/joho/godotenv v1.5.1
-	github.com/lmittmann/tint v1.2.0
+	github.com/lmittmann/tint v1.2.1
 	github.com/matryer/is v1.4.1
 	github.com/oapi-codegen/nethttp-middleware v1.2.0
 	github.com/oapi-codegen/runtime v1.7.0
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/samber/slog-chi v1.19.1
 	golang.org/x/crypto v0.57.0
-	golang.org/x/sync v0.23.0
+	golang.org/x/sync v0.24.0
 	modernc.org/sqlite v1.60.1
 )
 
