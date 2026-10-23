@@ -19,7 +19,9 @@ func generatePairingCode(serverURL string) (code string, rawToken []byte, err er
 		return "", nil, fmt.Errorf("generate pairing token: %w", err)
 	}
 
-	payload := append(rawToken, []byte(serverURL)...)
+	payload := make([]byte, 0, len(rawToken)+len(serverURL))
+	payload = append(payload, rawToken...)
+	payload = append(payload, serverURL...)
 	code = base64.RawURLEncoding.EncodeToString(payload)
 	return code, rawToken, nil
 }
