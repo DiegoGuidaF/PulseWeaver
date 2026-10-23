@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0] - 2026-10-23
+
+### Upgrade notes
+
+- Two new database migrations run automatically on first start. `000034` adds an index on `access_log(created_at, outcome)`, so the first start after upgrading may be slow on a very large access log. `000035` adds `address_events.trigger_type`, backfills it, and renames source `manual` to `web_ui`.
+
+### Features
+
+- Address history: TTL-risk histogram with an at-risk device ranking and a risk chart ([`9f0b40a`](https://github.com/DiegoGuidaF/PulseWeaver/commit/9f0b40acc96ebbf3c2a943a007eb4667f4e263d7), [`d4003ca`](https://github.com/DiegoGuidaF/PulseWeaver/commit/d4003ca50c454d9432a15b2b7212f464c292e125))
+- Address history: tuning readout listing the devices most worth re-tuning their lease TTL for the selected time window, with a deep link to stage a suggested TTL (new `GET /address-history/tuning`) ([`c39aea9`](https://github.com/DiegoGuidaF/PulseWeaver/commit/c39aea94fe4f77cb4249185a63d50f3ab5ce3141), [`5bee09e`](https://github.com/DiegoGuidaF/PulseWeaver/commit/5bee09ef391f73af5f6160faa6bc8545c84c9ab2), [`6066ac6`](https://github.com/DiegoGuidaF/PulseWeaver/commit/6066ac65bad7d1bfdcc96370ff5707d89b3b8ae1), [`f33015f`](https://github.com/DiegoGuidaF/PulseWeaver/commit/f33015fb459743d350c1793813f132073145af42))
+- Access log: histogram chart that follows the active filters, and a detail endpoint that the drawer fetches on open (new `GET /access-log/histogram` and `GET /access-log/{id}`) ([`57b024f`](https://github.com/DiegoGuidaF/PulseWeaver/commit/57b024f4ba3ff9e5e62f10d207b347da2598fc0c), [`f9f25b7`](https://github.com/DiegoGuidaF/PulseWeaver/commit/f9f25b753993a1301b26f893e4307d77d81678ed))
+- Address events record what triggered them (user, system or schedule); the history table has a Trigger column and badges only the exception rows ([`854cabb`](https://github.com/DiegoGuidaF/PulseWeaver/commit/854cabbe57c0cf293ac63eb7cf6c6d756f2ea7fa), [`b23d29e`](https://github.com/DiegoGuidaF/PulseWeaver/commit/b23d29ea1895c2fc840319b657da5128f7b3dedb), [`85b62b8`](https://github.com/DiegoGuidaF/PulseWeaver/commit/85b62b878d1152402cfb298709f93e21f088c6a7))
+- Copy the pairing QR to the clipboard; the QR is also larger for easier scanning ([`f0310db`](https://github.com/DiegoGuidaF/PulseWeaver/commit/f0310dbaf048dc99cdd4473725961c8b885b3da9))
+
+### Bug Fixes
+
+- Superadmin-only role endpoints return 403 instead of 500 when called with an admin role ([`bc800c4`](https://github.com/DiegoGuidaF/PulseWeaver/commit/bc800c4e0daf452e481ee5054269c80fb2750c55))
+- Pairing tab dot stays in step with codes claimed or expired elsewhere ([`bcd0170`](https://github.com/DiegoGuidaF/PulseWeaver/commit/bcd0170ab162a69803ca073b4730fce76aa22cbb))
+- Access-log panels dim only on user-triggered refreshes, not background ones ([`5a22c19`](https://github.com/DiegoGuidaF/PulseWeaver/commit/5a22c196416374dc779efb3f62305595ad76ca5b))
+- Filters time window is pinned, suggested-TTL restaging fixed, and the tuning 400 response declared in the API contract ([`16d0af6`](https://github.com/DiegoGuidaF/PulseWeaver/commit/16d0af62fd3c51307df9db63b293c72b893506dc), [`61bdac8`](https://github.com/DiegoGuidaF/PulseWeaver/commit/61bdac87567457d795b8a8d868fc46da06eeba5c), [`9f62fb9`](https://github.com/DiegoGuidaF/PulseWeaver/commit/9f62fb9b633d135b7994cc93f5265ad599506ced))
+- Login `returnTo` is restricted to in-app paths ([`db3d22a`](https://github.com/DiegoGuidaF/PulseWeaver/commit/db3d22a8a2de37e30ded7bdb336611575a7b12c4))
+- Security headers are set from a single place and the Content-Security-Policy is hardened ([`b9fa173`](https://github.com/DiegoGuidaF/PulseWeaver/commit/b9fa17383605e4e80362cc514e0132dcbfbeb769))
+
+### Documentation
+
+- Rewrite the histogram endpoint description for API clients ([`1f95922`](https://github.com/DiegoGuidaF/PulseWeaver/commit/1f95922eea904456fe3f7d4337813559f34e6533))
+
+### Under the Hood
+
+- Security: upgrade Go to 1.27.3 and update Go modules, upgrade react-router to v8, update frontend dependencies and clear dev audit findings; add a weekly security scan workflow with a govulncheck gate ([`01f2190`](https://github.com/DiegoGuidaF/PulseWeaver/commit/01f21904616eda9a010305e44243ed984e54aa59), [`ca8c067`](https://github.com/DiegoGuidaF/PulseWeaver/commit/ca8c067432c4c51d8f4fb4fecfe039d0bcce41e0), [`5c588e2`](https://github.com/DiegoGuidaF/PulseWeaver/commit/5c588e26c0a529fab84504ff04040e0415bff67e), [`77edee4`](https://github.com/DiegoGuidaF/PulseWeaver/commit/77edee44147f24972b7414a833c8760c319fcaab))
+- Bump Node to 26.12.1, upgrade vitest to 5 and happy-dom to 21, golangci-lint for Go 1.27 ([`580e390`](https://github.com/DiegoGuidaF/PulseWeaver/commit/580e390169237917d83cffa9e7cf844db8f51b68), [`b73431e`](https://github.com/DiegoGuidaF/PulseWeaver/commit/b73431ecbebf395edb285bdf5591c1df2596f246), [`24f09d4`](https://github.com/DiegoGuidaF/PulseWeaver/commit/24f09d4db0de6bcfe56a221bd1e2dd290f876076))
+- Move build-time UI packages to devDependencies ([`37b0a8f`](https://github.com/DiegoGuidaF/PulseWeaver/commit/37b0a8fa40a102d8c19fae56cb4eb2ebd412dcfd))
+- Performance: the tuning ranking is answered in one query; access-log histogram benchmark and scan coverage ([`ff77440`](https://github.com/DiegoGuidaF/PulseWeaver/commit/ff77440f214a712071aab2d0194cee805b3053dc), [`6a5ecd4`](https://github.com/DiegoGuidaF/PulseWeaver/commit/6a5ecd4074c4095eb42421f5a09037065757b814))
+- The histogram always scans raw data and the rollup delegation was dropped; the tuning read model has its own file; new `filterx` package ([`d27eb7e`](https://github.com/DiegoGuidaF/PulseWeaver/commit/d27eb7e8e7878a7feb4199383a1936945db8664f), [`ac238bf`](https://github.com/DiegoGuidaF/PulseWeaver/commit/ac238bfcc90e4f97e6fb71b7ee9ad46fda019975))
+- Rename password length bound constants to clear a CodeQL taint alert, no behaviour change ([`7756ca8`](https://github.com/DiegoGuidaF/PulseWeaver/commit/7756ca89c25fcf8a3c36366f7fe2ff978bd99628))
+- The Vite dev server now fails instead of falling back to another port (dev only) ([`8c823f6`](https://github.com/DiegoGuidaF/PulseWeaver/commit/8c823f613fec8863075fcb02b23662182c98d365))
+- Size the pairing code payload up front, extra test coverage, Dependabot bumps ([`eb2bc66`](https://github.com/DiegoGuidaF/PulseWeaver/commit/eb2bc665951894b306540268f1f823233caa4e89))
+
 ## [0.6.0] - 2026-08-07
 
 ### Bug Fixes
