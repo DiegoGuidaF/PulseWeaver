@@ -24,6 +24,14 @@ linters:
     # third-party structs (http.Server, slog.HandlerOptions, etc.)
     - exhaustruct
 
+  exclusions:
+    rules:
+      # httptest requests are served in-process by a recorder, so there is no
+      # connection for a context to cancel.
+      - path: (_test\.go|internal/testutils/)
+        linters:
+          - noctx
+
   settings:
     exhaustive:
       # A default case does not excuse missing an explicit case for every
