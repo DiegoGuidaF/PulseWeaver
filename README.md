@@ -6,7 +6,7 @@
 [![CI](https://github.com/diegoguidaf/pulseweaver/actions/workflows/ci.yml/badge.svg)](https://github.com/diegoguidaf/pulseweaver/actions/workflows/ci.yml)
 [![Security Scan](https://github.com/diegoguidaf/pulseweaver/actions/workflows/security-scan.yml/badge.svg)](https://github.com/diegoguidaf/pulseweaver/actions/workflows/security-scan.yml)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io%2Fdiegoguidaf%2Fpulseweaver-2496ED?logo=docker&logoColor=white)](https://github.com/diegoguidaf/pulseweaver/pkgs/container/pulseweaver)
-[![Go 1.26](https://img.shields.io/badge/go-1.26-00ADD8?logo=go&logoColor=white)](go.mod)
+[![Go 1.27](https://img.shields.io/badge/go-1.27-00ADD8?logo=go&logoColor=white)](go.mod)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 
 **PulseWeaver** is a self-hosted closed-door access layer for reverse proxies: unknown IPs are stopped before they reach
