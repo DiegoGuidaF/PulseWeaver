@@ -80,6 +80,30 @@ func ipRateLimitMiddleware(path, method string, requests int, window time.Durati
 	}
 }
 
+// contentSecurityPolicy is deliberately tight: the SPA is a self-contained bundle with no inline
+// scripts, no third-party loads and no framing. style-src keeps 'unsafe-inline' for Mantine's
+// runtime style attributes.
+const contentSecurityPolicy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
+	"img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+
+// SecurityHeadersMiddleware sets the browser security headers on every response (API, SPA and
+// error responses alike). It is the single owner of these headers; downstream handlers must not
+// set them again. X-Frame-Options duplicates CSP frame-ancestors for legacy browsers.
+func SecurityHeadersMiddleware() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			h := w.Header()
+			h.Set("X-Content-Type-Options", "nosniff")
+			h.Set("X-Frame-Options", "DENY")
+			h.Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+			h.Set("Content-Security-Policy", contentSecurityPolicy)
+			h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+			h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), interest-cohort=()")
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 // MaxBodySizeMiddleware limits request body size to prevent large payloads from exhausting memory.
 func MaxBodySizeMiddleware(maxBytes int64) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {

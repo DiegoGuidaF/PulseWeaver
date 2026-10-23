@@ -24,9 +24,6 @@ func Handler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Header().Set("X-Frame-Options", "SAMEORIGIN")
-
 		// API routes handled by main router, but double check safety
 		if strings.HasPrefix(path, "/api/") {
 			http.NotFound(w, r)

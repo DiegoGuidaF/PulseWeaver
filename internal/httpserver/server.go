@@ -49,13 +49,7 @@ func NewServer(
 		r.Use(ClientIPFromRequestMiddleware())
 	}
 
-	// Set security policies
-	r.Use(middleware.SetHeader("X-Content-Type-Options", "nosniff"))
-	r.Use(middleware.SetHeader("X-Frame-Options", "DENY"))
-	r.Use(middleware.SetHeader("Strict-Transport-Security", "max-age=63072000; includeSubDomains"))
-	r.Use(middleware.SetHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'"))
-	r.Use(middleware.SetHeader("Referrer-Policy", "strict-origin-when-cross-origin"))
-	r.Use(middleware.SetHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), interest-cohort=()"))
+	r.Use(SecurityHeadersMiddleware())
 	r.Use(MaxBodySizeMiddleware(256 * 1024)) // 256KB
 
 	addRoutes(r, deviceHandler, authHandler, ruleHandler, queriesHandler, policyHandler, rollupHandler, pairingHandler, hostsHandler, userAccessHandler, networkPoliciesHandler, versionHandler, accessLogHandler, logger)
