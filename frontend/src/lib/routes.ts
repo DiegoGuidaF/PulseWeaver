@@ -32,6 +32,18 @@ export const DeviceTab = {
 
 export type DeviceTabValue = (typeof DeviceTab)[keyof typeof DeviceTab];
 
+/**
+ * Resolves the `?returnTo=` login param to an in-app path. Only a single-slash
+ * absolute path is accepted: `//host`, `/\host`, `https://…` and control
+ * characters can be read as another origin by a browser, so they fall back to
+ * the dashboard instead of being handed to the router.
+ */
+export function safeReturnTo(raw: string | null): string {
+  if (!raw || !/^\/(?![/\\])/.test(raw)) return ROUTES.dashboard;
+  const hasControlChar = [...raw].some((c) => c.charCodeAt(0) <= 0x1f || c.charCodeAt(0) === 0x7f);
+  return hasControlChar ? ROUTES.dashboard : raw;
+}
+
 export const buildRoute = {
   userDevices: (ownerId: string | number) => `/devices/owners/${ownerId}`,
   userDevicesNew: (ownerId: string | number) => `/devices/owners/${ownerId}/new`,

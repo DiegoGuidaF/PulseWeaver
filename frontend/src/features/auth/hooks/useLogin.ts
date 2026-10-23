@@ -4,7 +4,7 @@ import {
   getCurrentUserQueryKey,
   loginMutation,
 } from "@/lib/api/@tanstack/react-query.gen";
-import { ROUTES } from "@/lib/routes";
+import { safeReturnTo } from "@/lib/routes";
 
 export function useLogin() {
   const queryClient = useQueryClient();
@@ -17,8 +17,7 @@ export function useLogin() {
       // This ensures ProtectedRoute sees the updated auth state immediately
       await queryClient.invalidateQueries({ queryKey: getCurrentUserQueryKey() });
       const params = new URLSearchParams(window.location.search);
-      const returnTo = params.get("returnTo") || ROUTES.dashboard;
-      navigate(returnTo);
+      navigate(safeReturnTo(params.get("returnTo")));
     },
   });
 }
