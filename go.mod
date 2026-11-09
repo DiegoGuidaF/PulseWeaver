@@ -4,7 +4,7 @@ go 1.27.3
 
 require (
 	github.com/Masterminds/squirrel v1.5.4
-	github.com/caarlos0/env/v11 v11.4.1
+	github.com/caarlos0/env/v11 v11.4.2
 	github.com/getkin/kin-openapi v0.152.0
 	github.com/go-chi/chi/v5 v5.5.0
 	github.com/go-chi/httprate v0.16.1
@@ -19,7 +19,7 @@ require (
 	github.com/samber/slog-chi v1.19.1
 	golang.org/x/crypto v0.58.0
 	golang.org/x/sync v0.24.0
-	modernc.org/sqlite v1.61.0
+	modernc.org/sqlite v1.61.1
 )
 
 require (
