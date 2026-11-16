@@ -65,7 +65,7 @@
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.13.0",
     "happy-dom": "^21.0.4",
-    "msw": "^2.15.0",
+    "msw": "^3.0.3",
     "postcss-preset-mantine": "^1.18.0",
     "postcss-simple-vars": "^7.0.1",
     "prettier": "^3.9.10",
