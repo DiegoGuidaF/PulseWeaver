@@ -5,7 +5,7 @@ go 1.27.3
 require (
 	github.com/Masterminds/squirrel v1.5.4
 	github.com/caarlos0/env/v11 v11.4.2
-	github.com/getkin/kin-openapi v0.152.0
+	github.com/getkin/kin-openapi v0.153.0
 	github.com/go-chi/chi/v5 v5.5.0
 	github.com/go-chi/httprate v0.16.1
 	github.com/golang-migrate/migrate/v4 v4.20.1
@@ -14,12 +14,12 @@ require (
 	github.com/lmittmann/tint v1.2.1
 	github.com/matryer/is v1.4.1
 	github.com/oapi-codegen/nethttp-middleware v1.3.1
-	github.com/oapi-codegen/runtime v1.8.0
+	github.com/oapi-codegen/runtime v1.9.0
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/samber/slog-chi v1.19.1
-	golang.org/x/crypto v0.58.0
-	golang.org/x/sync v0.24.0
-	modernc.org/sqlite v1.61.1
+	golang.org/x/crypto v0.59.0
+	golang.org/x/sync v0.25.0
+	modernc.org/sqlite v1.62.0
 )
 
 require (
@@ -35,18 +35,16 @@ require (
 	github.com/lib/pq v1.11.1 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/ncruces/go-strftime v1.1.0 // indirect
-	github.com/oasdiff/yaml v0.1.1 // indirect
-	github.com/oasdiff/yaml3 v0.0.14 // indirect
 	github.com/oschwald/maxminddb-golang v1.13.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
 	github.com/zeebo/xxh3 v1.0.2 // indirect
 	go.opentelemetry.io/otel v1.44.0 // indirect
 	go.opentelemetry.io/otel/trace v1.44.0 // indirect
-	golang.org/x/sys v0.49.0 // indirect
-	golang.org/x/text v0.43.0 // indirect
-	modernc.org/libc v1.79.0 // indirect
+	go.yaml.in/yaml/v4 v4.0.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
+	golang.org/x/text v0.44.0 // indirect
+	modernc.org/libc v1.80.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
 )
